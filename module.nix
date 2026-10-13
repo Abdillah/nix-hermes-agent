@@ -245,6 +245,12 @@ in
       description = "State directory (HERMES_HOME base). Contains .hermes/ subdir.";
     };
 
+    dataDir = mkOption {
+      type = types.str;
+      default = "/var/lib/hermes";
+      description = "Data directory (HERMES_HOME base).";
+    };
+
     workingDirectory = mkOption {
       type = types.str;
       default = "${cfg.stateDir}/workspace";
@@ -297,7 +303,7 @@ in
     skills = mkOption {
       default = { };
       description = ''
-        Declarative Hermes skills materialized into `${cfg.stateDir}/.hermes/skills`.
+        Declarative Hermes skills materialized into `${cfg.dataDir}/skills`.
         Phase 1 supports bundled upstream skills, selected optional skills,
         and custom local skills.
       '';
@@ -538,8 +544,8 @@ in
     # ── Directories ──────────────────────────────────────────────────────
     systemd.tmpfiles.rules = [
       "d ${cfg.stateDir} 0750 ${cfg.user} ${cfg.group} - -"
-      "d ${cfg.stateDir}/.hermes 0750 ${cfg.user} ${cfg.group} - -"
-      "d ${cfg.stateDir}/.hermes/skills 0750 ${cfg.user} ${cfg.group} - -"
+      "d ${cfg.dataDir} 0750 ${cfg.user} ${cfg.group} - -"
+      "d ${cfg.dataDir}/skills 0750 ${cfg.user} ${cfg.group} - -"
       "d ${cfg.workingDirectory} 0750 ${cfg.user} ${cfg.group} - -"
       "d ${builtins.dirOf cfg.logPath} 0750 ${cfg.user} ${cfg.group} - -"
     ];
@@ -550,25 +556,25 @@ in
 
       # Ensure required directories exist during activation (do not rely on tmpfiles ordering)
       install -d -o ${cfg.user} -g ${cfg.group} -m 0750 ${cfg.stateDir}
-      install -d -o ${cfg.user} -g ${cfg.group} -m 0750 ${cfg.stateDir}/.hermes
-      install -d -o ${cfg.user} -g ${cfg.group} -m 0750 ${cfg.stateDir}/.hermes/skills
+      install -d -o ${cfg.user} -g ${cfg.group} -m 0750 ${cfg.dataDir}
+      install -d -o ${cfg.user} -g ${cfg.group} -m 0750 ${cfg.dataDir}/skills
       install -d -o ${cfg.user} -g ${cfg.group} -m 0750 ${cfg.workingDirectory}
       install -d -o ${cfg.user} -g ${cfg.group} -m 0750 ${builtins.dirOf cfg.logPath}
 
       # Link config file
-      install -o ${cfg.user} -g ${cfg.group} -m 0640 -D ${configFile} ${cfg.stateDir}/.hermes/cli-config.yaml
+      install -o ${cfg.user} -g ${cfg.group} -m 0640 -D ${configFile} ${cfg.dataDir}/cli-config.yaml
 
       # Seed auth file if provided (only if not already present, unless force overwrite)
       ${lib.optionalString (cfg.authFile != null) ''
         ${
           if cfg.authFileForceOverwrite then
             ''
-              install -o ${cfg.user} -g ${cfg.group} -m 0600 ${cfg.authFile} ${cfg.stateDir}/.hermes/auth.json
+              install -o ${cfg.user} -g ${cfg.group} -m 0600 ${cfg.authFile} ${cfg.dataDir}/auth.json
             ''
           else
             ''
-              if [ ! -f ${cfg.stateDir}/.hermes/auth.json ]; then
-                install -o ${cfg.user} -g ${cfg.group} -m 0600 ${cfg.authFile} ${cfg.stateDir}/.hermes/auth.json
+              if [ ! -f ${cfg.dataDir}/auth.json ]; then
+                install -o ${cfg.user} -g ${cfg.group} -m 0600 ${cfg.authFile} ${cfg.dataDir}/auth.json
               fi
             ''
         }
@@ -583,7 +589,7 @@ in
 
       # Reconcile Nix-managed skills without touching hub/runtime-managed state
       ${lib.optionalString skillsManaged ''
-                skills_dir=${cfg.stateDir}/.hermes/skills
+                skills_dir=${cfg.dataDir}/skills
                 managed_tree=${managedSkillsTree}
                 state_file="$skills_dir/.nix-managed-skills.json"
                 desired_file="$managed_tree/.nix-managed-skills.json"
@@ -645,7 +651,7 @@ in
 
       environment = {
         HOME = cfg.stateDir;
-        HERMES_HOME = "${cfg.stateDir}/.hermes";
+        HERMES_HOME = "${cfg.dataDir}";
         MESSAGING_CWD = cfg.workingDirectory;
       };
 
@@ -678,7 +684,7 @@ in
         NoNewPrivileges = true;
         ProtectSystem = "strict";
         ProtectHome = false;
-        ReadWritePaths = [ cfg.stateDir ];
+        ReadWritePaths = [ cfg.stateDir cfg.dataDir ];
         PrivateTmp = true;
       };
 
